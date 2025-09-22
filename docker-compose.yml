@@ -1,0 +1,32 @@
+
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: apex_postgres
+    environment:
+      POSTGRES_USER: apexuser
+      POSTGRES_PASSWORD: apexpassword
+      POSTGRES_DB: apexdb
+    ports:
+      - "5438:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: apex_redis
+    # This new line tells Redis to start using our config file
+    command: redis-server /usr/local/etc/redis/redis.conf
+    ports:
+      - "6379:6379"
+    volumes:
+      # This new line makes our local config file available inside the container
+      - ./config/redis.conf:/usr/local/etc/redis/redis.conf
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

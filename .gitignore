@@ -1,0 +1,21 @@
+    # Node.js
+    /frontend/node_modules
+    /frontend/.next
+    /frontend/npm-debug.log*
+    /frontend/yarn-debug.log*
+    /frontend/yarn-error.log*
+
+    # Python
+    /backend/venv
+    /backend/__pycache__
+    /backend/*.pyc
+    /backend/env
+
+    # IDEs and OS files
+    .vscode/
+    .idea/
+    .DS_Store
+
+    # Secrets - VERY IMPORTANT
+    *.env
+    *.env.local

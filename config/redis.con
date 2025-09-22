@@ -1,0 +1,10 @@
+# --- REDIS PERSISTENCE ---
+# Use Append Only File (AOF) persistence. It's more durable for a job queue.
+appendonly yes
+appendfsync everysec
+
+# --- MEMORY MANAGEMENT ---
+# Set a memory limit for our local container.
+maxmemory 256mb
+maxmemory-policy allkeys-lru
+
