@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 import uuid
 from typing import Optional, List, Dict, Any
-
+from enum import Enum
 from .user_roles import UserRole
 from .project_roles import ProjectRole
 
@@ -134,3 +134,30 @@ class CodeSnippetRead(BaseModel):
 
     class Config:
         from_attributes = True
+class FeedbackCreate(BaseModel):
+    is_helpful: bool
+    comment: Optional[str] = Field(None, max_length=1000)
+
+class FeedbackRead(BaseModel):
+    id: int
+    review_id: uuid.UUID
+    user_id: uuid.UUID
+    is_helpful: bool
+    comment: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MessageLevel(str, Enum):
+    INFO = "info"
+    WARNING = "warning"
+    CRITICAL = "critical"
+
+class SystemBroadcast(BaseModel):
+    level: MessageLevel = MessageLevel.INFO
+    text: str = Field(..., min_length=1, max_length=1000)
+
+class SnippetBulkDelete(BaseModel):
+    snippet_ids: List[uuid.UUID]

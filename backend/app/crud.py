@@ -1,25 +1,44 @@
-# File: apex/backend/app/crud.py
-from sqlalchemy import func, select
-from sqlalchemy.orm import selectinload
-import hashlib
-from typing import Optional, List, Dict, Any
+# # File: apex/backend/app/crud.py
+# from sqlalchemy import func, select
+# from sqlalchemy.orm import selectinload
+# import hashlib
+# from typing import Optional, List, Dict, Any
+# from sqlalchemy.ext.asyncio import AsyncSession
+# from sqlalchemy.future import select
+# from sqlalchemy.orm import selectinload
+# from typing import Optional
+# from datetime import datetime, timedelta, timezone
+# from .user_roles import UserRole
+# from . import models, schemas, security
+# from .security import REFRESH_TOKEN_EXPIRE_DAYS
+# from .project_roles import ProjectRole
+# from sqlalchemy.orm import selectinload
+# from fastapi import Request
+# from sqlalchemy import func, select
+# from . import schemas
+# from . import models, schemas
+# from sqlalchemy.ext.asyncio import AsyncSession
+# import uuid
+# from typing import Dict, Any
+# from sqlalchemy.orm import selectinload
+# from sqlalchemy import delete
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from typing import Optional
+from sqlalchemy import func, delete
+from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta, timezone
-from .user_roles import UserRole
+import uuid
+import hashlib
+from fastapi import Request
+
 from . import models, schemas, security
 from .security import REFRESH_TOKEN_EXPIRE_DAYS
+from .user_roles import UserRole
 from .project_roles import ProjectRole
-from sqlalchemy.orm import selectinload
-from fastapi import Request
-from sqlalchemy import func, select
-from . import schemas
-from . import models, schemas
-from sqlalchemy.ext.asyncio import AsyncSession
-import uuid
-from typing import Dict, Any
+
+
 
 PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = 30
 
@@ -522,3 +541,67 @@ async def update_snippet_metrics(db: AsyncSession, snippet: models.CodeSnippet, 
     await db.refresh(snippet)
     return snippet
 
+async def find_cached_review_by_normalized_hash(db: AsyncSession, normalized_hash: str) -> Optional[models.Review]:
+    """
+    Finds a recent, completed review for a code snippet with an identical
+    normalized hash. This is our cache lookup.
+    """
+    query = (
+        select(models.Review)
+        .join(models.CodeSnippet)
+        .where(models.CodeSnippet.normalized_hash == normalized_hash)
+        .where(models.Review.status == "completed")
+        .order_by(models.Review.completed_at.desc())
+        .limit(1)
+    )
+    result = await db.execute(query)
+    return result.scalars().first()
+
+async def delete_snippets_in_bulk(db: AsyncSession, project_id: uuid.UUID, snippet_ids: List[uuid.UUID]) -> int:
+    """
+    Deletes multiple code snippets from a project in a single database query.
+    Returns the number of snippets that were deleted.
+    """
+    # Build a delete statement that targets the specified snippets within the given project.
+    # The second where clause is a critical security check to ensure that a user
+    # cannot delete snippets from a project they don't have access to.
+    stmt = (
+        delete(models.CodeSnippet)
+        .where(models.CodeSnippet.project_id == project_id)
+        .where(models.CodeSnippet.id.in_(snippet_ids))
+    )
+    
+    result = await db.execute(stmt)
+    await db.commit()
+    
+    # The 'rowcount' attribute tells us how many rows were affected by the delete operation.
+    return result.rowcount
+
+async def get_all_users(db: AsyncSession, skip: int = 0, limit: int = 100) -> List[models.User]:
+    """
+    Fetches a list of all users from the database with pagination.
+    --- OPTIMIZED WITH EAGER LOADING ---
+    This now pre-fetches the project associations to prevent N+1 query problems.
+    """
+    query = (
+        select(models.User)
+        .options(selectinload(models.User.project_associations).selectinload(models.ProjectMember.project))
+        .offset(skip)
+        .limit(limit)
+    )
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
+async def get_user_by_id(db: AsyncSession, user_id: uuid.UUID) -> Optional[models.User]:
+    """Fetches a single user by their UUID."""
+    return await db.get(models.User, user_id)
+
+
+async def update_user_role(db: AsyncSession, user: models.User, new_role: UserRole) -> models.User:
+    """Updates a user's role in the database."""
+    user.role = new_role
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user

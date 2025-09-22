@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 import uuid
+from . import schemas
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # --- CORRECTED IMPORTS ---
@@ -79,3 +80,24 @@ async def set_user_subscription(
         db=db, user=user_to_update, tier=subscription_update.subscription_tier
     )
     return updated_user
+
+# (imports are at the top of the file)
+
+
+# ... (other code) ...
+
+@router.post("/broadcast", status_code=status.HTTP_202_ACCEPTED)
+async def broadcast_system_message(
+    message: schemas.SystemBroadcast,  # <-- IT IS USED RIGHT HERE
+    current_user: models.User = Depends(permissions.is_admin)
+):
+    """
+    Broadcasts a message to all currently connected WebSocket clients.
+    This is an admin-only action.
+    """
+    await ws_manager.broadcast_to_all({
+        "type": "system_message",
+        "level": message.level.value,
+        "text": message.text
+    })
+    return {"status": "Message broadcast scheduled."}

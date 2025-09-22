@@ -146,3 +146,35 @@ class CodeSnippet(Base):
     reviews: Mapped[List["Review"]] = relationship(
         back_populates="code_snippet", cascade="all, delete-orphan"
     )
+
+
+class Review(Base):
+    __tablename__ = "reviews"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    code_snippet_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("code_snippets.id"))
+    status: Mapped[str] = mapped_column(String, index=True, default="pending")
+    # ... (rest of the columns are here)
+    
+    code_snippet: Mapped["CodeSnippet"] = relationship(back_populates="reviews")
+
+    # --- ADD THIS NEW RELATIONSHIP ---
+    feedback: Mapped["ReviewFeedback"] = relationship(
+        back_populates="review", cascade="all, delete-orphan", uselist=False
+    )
+    # --- END OF NEW RELATIONSHIP ---
+
+
+# --- ADD THIS NEW MODEL ---
+class ReviewFeedback(Base):
+    __tablename__ = "review_feedback"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    review_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("reviews.id"), unique=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    
+    is_helpful: Mapped[bool] = mapped_column(Boolean)
+    comment: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    review: Mapped["Review"] = relationship(back_populates="feedback")
